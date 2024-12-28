@@ -1,4 +1,4 @@
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, Response
 from process_input import main
 from flask_cors import CORS
 
@@ -15,8 +15,8 @@ def process():
         return jsonify({'error': 'Missing input data or type'}), 400
 
     try:
-        if input_type == 'url':
-            count = main(input_data, input_type)
+        if input_type == 'url' or input_type == 'video':
+            return Response(main(input_data, input_type), content_type='multipart/x-mixed-replace; boundary=frame')
         elif input_type == 'image' and overlapped:
             count = main(input_data.read(), input_type, overlapped)
             count = count.tolist()

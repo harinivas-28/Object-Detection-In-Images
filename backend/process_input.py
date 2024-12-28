@@ -10,6 +10,7 @@ import math
 import albumentations as A
 from trained_models import models
 from datetime import datetime
+from flask import Response
 from albumentations.pytorch import ToTensorV2
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
@@ -37,71 +38,33 @@ def process_image(image, model):
     print(f"Predicted Headcount: {predicted_count}")
     return math.ceil(predicted_count)
 
-def process_video(video, model):
-    cap = video
-    unique_people = set()
-    while cap.isOpened():
-        ret, frame = cap.read()
+def process_video_stream(video, model):
+    """Stream video frames to frontend."""
+    while video.isOpened():
+        ret, frame = video.read()
         if not ret:
             break
+        # Perform detection on the frame
         results = model(frame)
         detection_results = results.pandas().xyxy[0]
-        person_detections = detection_results[detection_results['name'] == 'person']
-        for index, row in person_detections.iterrows():
-            confidence = row['confidence']
-            x1, y1, x2, y2 = int(row['xmin']), int(row['ymin']), int(row['xmax']), int(row['ymax'])
-            person_id = (x1, y1, x2, y2)
-            unique_people.add(person_id)
-            cv2.rectangle(frame, (x1, y1), (x2, y2), (0, 255, 0), 2)
-            cv2.putText(frame, f'Person {confidence:.2f}', (x1, y1 - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 255, 0), 2)
-        cv2.imshow('Person Detection', frame)
-        if cv2.waitKey(1) & 0xFF == ord('q'):
-            break
+        for index, row in detection_results.iterrows():
+            if row['name'] == 'person':
+                x1, y1, x2, y2 = int(row['xmin']), int(row['ymin']), int(row['xmax']), int(row['ymax'])
+                cv2.rectangle(frame, (x1, y1), (x2, y2), (0, 255, 0), 2)
+                cv2.putText(frame, f'Person {row["confidence"]:.2f}', (x1, y1 - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 255, 0), 2)
 
-    cap.release()
-    cv2.destroyAllWindows()
-    print(f"Unique number of people detected: {len(unique_people)}")
-    with open("unique_people.txt", 'a+') as file:
-        file.write(f"Log Date: {datetime.now()} -- ")
-        file.write(f"Unique number of people detected: {len(unique_people)}\n")
-
-def process_url(url, model):
-    class_counts = {}
-    cap = cv2.VideoCapture(url)
-    while True:
-        ret, frame = cap.read()
+        # Convert frame to JPEG and yield as byte stream
+        ret, jpeg = cv2.imencode('.jpg', frame)
         if not ret:
             break
-        results = model(frame)
-        detection_results = results.pandas().xyxy[0] 
-        detected_in_frame = set()
-        for index, row in detection_results.iterrows():
-            class_name = row['name']
-            confidence = row['confidence']
-            if class_name not in detected_in_frame and confidence>0.7:
-                detected_in_frame.add(class_name)
-                if class_name in class_counts:
-                    class_counts[class_name] = max(class_counts[class_name],confidence)
-                else:
-                    class_counts[class_name] = confidence
-            x1, y1, x2, y2 = int(row['xmin']), int(row['ymin']), int(row['xmax']), int(row['ymax'])
-            
-            cv2.rectangle(frame, (x1, y1), (x2, y2), (0, 255, 0), 2)
-            cv2.putText(frame, f'{class_name} {confidence:.2f}', (x1, y1 - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 255, 0), 2)
-        
-        cv2.imshow('YOLOv5 Object Detection', frame)
-        if cv2.waitKey(1) & 0xFF == ord('q'):
-            break
+        frame_bytes = jpeg.tobytes()
+        yield (b'--frame\r\n'
+               b'Content-Type: image/jpeg\r\n\r\n' + frame_bytes + b'\r\n')
 
-    # Release resources
-    cap.release()
-    cv2.destroyAllWindows()
-    print("Objects are saved in the file")
-    with open("./objects.txt", 'a+') as file:
-        file.write(f"Log Date: {datetime.now()}\n")
-        for class_name, count in class_counts.items():
-            file.write(f"{class_name}: {count}\n")
-        file.write("\n")
+def process_url_stream(url, model):
+    """Stream video from URL."""
+    cap = cv2.VideoCapture(url)
+    return process_video_stream(cap, model)
 
 def load_video_model():
     try:

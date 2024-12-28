@@ -1,4 +1,4 @@
-import React, { useState } from "react"
+import React, { useState, useEffect } from "react"
 import {
   Button,
   Form,
@@ -18,6 +18,13 @@ const App = () => {
   const [result, setResult] = useState("")
   const [error, setError] = useState(null)
   const [overlapped, setOverlapped] = useState(false)
+  const [streamUrl, setStreamUrl] = useState('');
+
+  useEffect(() => {
+    if (inputType === 'video' || inputType === 'url') {
+      setStreamUrl(`http://127.0.0.1:5000/api/process?input=${input}&inputType=${inputType}`);
+    }
+  }, [inputType, input]);
 
   const handleInputChange = e => {
     const file = e.target.files?.[0]
@@ -141,7 +148,7 @@ const App = () => {
           </Button>
         </div>
       </Form>
-      {result !== null && (
+      {result !== "" && (
         <Alert variant="success" className="mt-3">
           Number of people detected: {result}
         </Alert>
@@ -151,8 +158,15 @@ const App = () => {
           {error}
         </Alert>
       )}
+      <div>
+          {inputType === 'video' || inputType === 'url' ? (
+            <img src={streamUrl} alt="Video Stream" />
+          ) : (
+            <p>No video input to display</p>
+          )}
+      </div>
     </Container>
   )
 }
 
-export default App
+export default App;
