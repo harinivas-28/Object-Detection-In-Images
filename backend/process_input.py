@@ -12,6 +12,8 @@ from trained_models import models
 from datetime import datetime
 from flask import Response
 from albumentations.pytorch import ToTensorV2
+import tempfile
+import os
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
@@ -39,32 +41,55 @@ def process_image(image, model):
     return math.ceil(predicted_count)
 
 def process_video_stream(video, model):
-    """Stream video frames to frontend."""
-    while video.isOpened():
-        ret, frame = video.read()
-        if not ret:
-            break
-        # Perform detection on the frame
-        results = model(frame)
-        detection_results = results.pandas().xyxy[0]
-        for index, row in detection_results.iterrows():
-            if row['name'] == 'person':
-                x1, y1, x2, y2 = int(row['xmin']), int(row['ymin']), int(row['xmax']), int(row['ymax'])
-                cv2.rectangle(frame, (x1, y1), (x2, y2), (0, 255, 0), 2)
-                cv2.putText(frame, f'Person {row["confidence"]:.2f}', (x1, y1 - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 255, 0), 2)
+    """Stream video frames with person detection to frontend."""
+    try:
+        frame_count = 0
+        total_frames = int(video.get(cv2.CAP_PROP_FRAME_COUNT))
+        fps = int(video.get(cv2.CAP_PROP_FPS))
+        
+        while video.isOpened():
+            ret, frame = video.read()
+            if not ret:
+                break
 
-        # Convert frame to JPEG and yield as byte stream
-        ret, jpeg = cv2.imencode('.jpg', frame)
-        if not ret:
-            break
-        frame_bytes = jpeg.tobytes()
-        yield (b'--frame\r\n'
-               b'Content-Type: image/jpeg\r\n\r\n' + frame_bytes + b'\r\n')
+            frame_count += 1
+            
+            # Perform detection on the frame
+            results = model(frame)
+            detection_results = results.pandas().xyxy[0]
+            
+            # Draw bounding boxes and count people
+            person_count = 0
+            for index, row in detection_results.iterrows():
+                if row['name'] == 'person':
+                    person_count += 1
+                    x1, y1, x2, y2 = int(row['xmin']), int(row['ymin']), int(row['xmax']), int(row['ymax'])
+                    cv2.rectangle(frame, (x1, y1), (x2, y2), (0, 255, 0), 2)
+                    cv2.putText(frame, f'Person {row["confidence"]:.2f}', (x1, y1 - 10), 
+                               cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 255, 0), 2)
 
-def process_url_stream(url, model):
-    """Stream video from URL."""
-    cap = cv2.VideoCapture(url)
-    return process_video_stream(cap, model)
+            # Add progress information
+            progress = (frame_count / total_frames) * 100 if total_frames > 0 else 0
+            cv2.putText(frame, f'Progress: {progress:.1f}% People: {person_count}', (10, 30), 
+                       cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
+
+            # Convert frame to JPEG and yield
+            ret, buffer = cv2.imencode('.jpg', frame)
+            if not ret:
+                break
+                
+            frame_bytes = buffer.tobytes()
+            yield (b'--frame\r\n'
+                   b'Content-Type: image/jpeg\r\n\r\n' + frame_bytes + b'\r\n')
+
+            # Control frame rate
+            cv2.waitKey(60 // fps)
+
+    finally:
+        video.release()
+        cv2.destroyAllWindows()
+        print("Hello World!", person_count)
+        return
 
 def load_video_model():
     try:
@@ -127,8 +152,9 @@ def transform_images(img1, img2):
 
 
 def main(input_data, input_type, overlapped=False):
-    print("Device: ",device)
-    print("Input Type: ",input_type)
+    print("Device: ", device)
+    print("Input Type: ", input_type)
+    
     if input_type == 'image':
         if isinstance(input_data, bytes):
             image = Image.open(BytesIO(input_data))
@@ -141,17 +167,40 @@ def main(input_data, input_type, overlapped=False):
             return process_overlapped_image(image, model)
         model = load_model()
         return process_image(image, model)
-    elif input_type == 'video' or 'url':
+    
+    elif input_type == 'video':
         video_model = load_video_model()
-        if input_type == 'video':
-            if isinstance(input_data, bytes):
-                temp_file = BytesIO(input_data)
-                video = cv2.VideoCapture(temp_file.getvalue())
+        try:
+            # Save the file data to a temporary file
+            temp_file = tempfile.NamedTemporaryFile(delete=False, suffix='.mp4')
+            if isinstance(input_data, (str, bytes)):
+                temp_file.write(input_data if isinstance(input_data, bytes) else input_data.encode())
             else:
-                video = cv2.VideoCapture(input_data)
-            return process_video(video, video_model)
-        elif input_type == 'url':
-            return process_url(input_data, video_model)
+                input_data.save(temp_file)
+            temp_file.close()
+            
+            # Open the temporary file with VideoCapture
+            video = cv2.VideoCapture(temp_file.name)
+            if not video.isOpened():
+                raise ValueError("Failed to open video file")
+            
+            # Process the video
+            return process_video_stream(video, video_model)
+            
+        except Exception as e:
+            raise Exception(f"Error processing video: {str(e)}")
+        finally:
+            # Clean up the temporary file
+            if 'temp_file' in locals():
+                try:
+                    os.unlink(temp_file.name)
+                except:
+                    pass
+    
+    elif input_type == 'url':
+        video_model = load_video_model()
+        return process_url_stream(input_data, video_model)
+    
     else:
         raise ValueError("Invalid input type")
 

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react"
+import React, { useState, useEffect, useRef } from "react"
 import {
   Button,
   Form,
@@ -6,7 +6,8 @@ import {
   Row,
   Col,
   Spinner,
-  Alert
+  Alert,
+  ProgressBar
 } from "react-bootstrap"
 import { Camera, Link, Upload } from "lucide-react"
 import "bootstrap/dist/css/bootstrap.min.css"
@@ -18,13 +19,10 @@ const App = () => {
   const [result, setResult] = useState("")
   const [error, setError] = useState(null)
   const [overlapped, setOverlapped] = useState(false)
-  const [streamUrl, setStreamUrl] = useState('');
-
-  useEffect(() => {
-    if (inputType === 'video' || inputType === 'url') {
-      setStreamUrl(`http://127.0.0.1:5000/api/process?input=${input}&inputType=${inputType}`);
-    }
-  }, [inputType, input]);
+  const [processTime, setProcessTime] = useState(0)
+  const [isProcessing, setIsProcessing] = useState(false)
+  const timerRef = useRef(null)
+  const imgRef = useRef(null)
 
   const handleInputChange = e => {
     const file = e.target.files?.[0]
@@ -43,17 +41,90 @@ const App = () => {
     setOverlapped((prevState) => !prevState);
   };
 
+  const startTimer = () => {
+    const startTime = Date.now()
+    timerRef.current = setInterval(() => {
+      setProcessTime(Math.floor((Date.now() - startTime) / 1000))
+    }, 1000)
+  }
+
+  const stopTimer = () => {
+    if (timerRef.current) {
+      clearInterval(timerRef.current)
+      timerRef.current = null
+    }
+  }
+
+  const handleVideoProcessing = async (formData) => {
+    try {
+      const response = await fetch("http://127.0.0.1:5000/api/process", {
+        method: "POST",
+        body: formData,
+        mode: "cors",
+        credentials: "include"
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      // Create a blob URL from the response
+      const blob = new Blob([await response.blob()], { type: 'multipart/x-mixed-replace; boundary=frame' });
+      const url = URL.createObjectURL(blob);
+
+      if (imgRef.current) {
+        imgRef.current.src = url;
+      }
+
+      return url;
+    } catch (error) {
+      throw error;
+    }
+  };
+
+  const handleStopButton = () => {
+    setIsProcessing(false);
+  }
+
   const handleSubmit = async e => {
     e.preventDefault()
-    setLoading(true)
     setError(null)
     setResult(null)
+    setProcessTime(0)
 
+    setLoading(true)
     const formData = new FormData()
     formData.append("input", input)
     formData.append("inputType", inputType)
     formData.append("overlapped", overlapped)
 
+    if (inputType === 'video' || inputType === 'url') {
+      setLoading(true)
+      setIsProcessing(true)
+      startTimer()
+
+      try {
+        const streamUrl = await handleVideoProcessing(formData);
+        
+        // Create new image element for MJPEG stream
+        if (imgRef.current) {
+          imgRef.current.onload = () => setLoading(false);
+          imgRef.current.onerror = (e) => {
+            console.error("Image load error:", e);
+            setError("Failed to load video stream");
+            setLoading(false);
+          };
+        }
+      } catch (err) {
+        console.error("Error:", err)
+        setError(`Failed to process video: ${err.message}`)
+        setLoading(false)
+        stopTimer()
+      }
+      return
+    }
+
+    setLoading(true)
     try {
       const response = await fetch("http://127.0.0.1:5000/api/process", {
         method: "POST",
@@ -95,6 +166,17 @@ const App = () => {
       setLoading(false)
     }
   }
+
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      stopTimer()
+      if (imgRef.current?.src) {
+        URL.revokeObjectURL(imgRef.current.src)
+      }
+    }
+  }, [])
 
   return (
     <Container className="mt-5">
@@ -148,6 +230,25 @@ const App = () => {
           </Button>
         </div>
       </Form>
+      {isProcessing && (
+        <div className="mt-3">
+          <ProgressBar animated now={100} />
+          <p className="text-center mt-2">Processing Time: {processTime} seconds</p>
+          <button type="button" className="btn btn-danger" onClick={handleStopButton}>Stop</button>
+        </div>
+      )}
+      {(inputType === 'video' || inputType === 'url') && isProcessing && (
+        <div className="mt-3">
+          <div className="ratio ratio-16x9">
+            <img
+              ref={imgRef}
+              alt="Video Stream"
+              className="w-100 h-100 object-fit-contain"
+              style={{ backgroundColor: '#000' }}
+            />
+          </div>
+        </div>
+      )}
       {result !== "" && (
         <Alert variant="success" className="mt-3">
           Number of people detected: {result}
@@ -158,13 +259,6 @@ const App = () => {
           {error}
         </Alert>
       )}
-      <div>
-          {inputType === 'video' || inputType === 'url' ? (
-            <img src={streamUrl} alt="Video Stream" />
-          ) : (
-            <p>No video input to display</p>
-          )}
-      </div>
     </Container>
   )
 }
