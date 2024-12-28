@@ -134,7 +134,7 @@ def process_overlapped_image(image, model, target_size=(1223, 373)):
     with torch.no_grad():
         output = model(img_combined)
     outputs = output.cpu().numpy()
-    return np.round(outputs, 2)
+    return np.round(outputs,2)
 
 def preprocess_image(image, target_size=(1223, 373)):
     """Resize image to target size"""
@@ -194,6 +194,7 @@ def main(input_data, input_type, overlapped=False):
 
 if __name__ == "__main__":
     # Example usage:
-    result = main('test/img1.jpg', 'image', False)
-    print(f"Number of people detected: {result}")
+    # result = main('test/img1.jpg', 'image', False)
+    # print(f"Number of people detected: {result}")
+    pass
 

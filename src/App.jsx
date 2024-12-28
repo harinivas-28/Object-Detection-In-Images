@@ -15,7 +15,7 @@ const App = () => {
   const [input, setInput] = useState("")
   const [inputType, setInputType] = useState("image")
   const [loading, setLoading] = useState(false)
-  const [result, setResult] = useState(null)
+  const [result, setResult] = useState("")
   const [error, setError] = useState(null)
   const [overlapped, setOverlapped] = useState(false)
 
@@ -32,9 +32,9 @@ const App = () => {
     setInputType("url")
   }
 
-  const handleCheckBox = e => {
-    setOverlapped(e.target.checked)
-  }
+  const handleCheckBox = () => {
+    setOverlapped((prevState) => !prevState);
+  };
 
   const handleSubmit = async e => {
     e.preventDefault()
@@ -55,21 +55,28 @@ const App = () => {
         credentials: "include" // Include credentials if needed
       })
       
-      console.log(response)
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}, ${response.error}`)
       }
-
+      
       const contentType = response.headers.get("content-type")
       if (!contentType || !contentType.includes("application/json")) {
         throw new TypeError("Oops, we haven't got JSON!")
       }
-
+      
       const data = await response.json()
+      console.log(data)
       if (data.error) {
         throw new Error(data.error)
       }
-      setResult(data.count)
+      if (Array.isArray(data) && Array.isArray(data[0])) {
+        const [total, overlapped, original] = data[0].map(value => 
+            Math.round(Number(value))
+        );
+        setResult(`Total: ${total}, Overlapped: ${overlapped}, Original: ${original}`);
+      } else {
+          setResult(`${data}`);
+      }    
     } catch (err) {
       console.error("Error details:", err)
       setError(
@@ -96,10 +103,14 @@ const App = () => {
                 accept="image/*,video/*"
               />
             </Form.Group>
-            <Form.Group>
-              <input type="checkbox" onChange={handleCheckBox}></input><span>  </span>
-              <Form.Label>Overlapped Image</Form.Label>
-            </Form.Group>
+            <Form.Group controlId="overlapCheckbox">
+              <Form.Check
+                type="checkbox"
+                label="Overlapped Image"
+                onChange={handleCheckBox}
+                checked={overlapped}
+              />
+          </Form.Group>
           </Col>
           <Col>
             <Form.Group>
