@@ -21,9 +21,11 @@ const App = () => {
   const [overlapped, setOverlapped] = useState(false)
   const [processTime, setProcessTime] = useState(0)
   const [isProcessing, setIsProcessing] = useState(false)
+  const [selectedModel, setSelectedModel] = useState('ResNet50');
+
   const timerRef = useRef(null)
   const imgRef = useRef(null)
-
+  
   const handleInputChange = e => {
     const file = e.target.files?.[0]
     if (file) {
@@ -31,6 +33,11 @@ const App = () => {
       setInputType(file.type.startsWith("image/") ? "image" : "video")
     }
   }
+  
+  const handleRadioChange = (event) => {
+    setSelectedModel(event.target.value);
+    setOverlapped(false);
+  };
 
   const handleUrlChange = e => {
     setInput(e.target.value)
@@ -39,6 +46,7 @@ const App = () => {
 
   const handleCheckBox = () => {
     setOverlapped((prevState) => !prevState);
+    setSelectedModel(null);
   };
 
   const startTimer = () => {
@@ -84,6 +92,7 @@ const App = () => {
 
   const handleStopButton = () => {
     setIsProcessing(false);
+    setLoading(false);
   }
 
   const handleSubmit = async e => {
@@ -97,6 +106,7 @@ const App = () => {
     formData.append("input", input)
     formData.append("inputType", inputType)
     formData.append("overlapped", overlapped)
+    formData.append("selected_model", selectedModel)
 
     if (inputType === 'video' || inputType === 'url') {
       setLoading(true)
@@ -199,6 +209,20 @@ const App = () => {
                 onChange={handleCheckBox}
                 checked={overlapped}
               />
+              <Form.Check
+                type="radio"
+                label="Use VGG16 Model"
+                value="VGG16"
+                onChange={handleRadioChange}
+                checked={selectedModel === 'VGG16'}
+              />
+              <Form.Check
+                type="radio"
+                label="Use ResNet50 Model"
+                value="ResNet50"
+                onChange={handleRadioChange}
+                checked={selectedModel === 'ResNet50'}
+              />
           </Form.Group>
           </Col>
           <Col>
@@ -218,6 +242,7 @@ const App = () => {
               <>
                 <Spinner animation="border" size="sm" className="me-2" />
                 Processing...
+                <p variant="success">Loading {isProcessing ? "" : (overlapped ? "ResNet18" : selectedModel)} ...</p>
               </>
             ) : (
               <>
@@ -232,6 +257,7 @@ const App = () => {
       </Form>
       {isProcessing && (
         <div className="mt-3">
+          <p className="text-success">YoloV5 Model is running...</p>
           <ProgressBar animated now={100} />
           <p className="text-center mt-2">Processing Time: {processTime} seconds</p>
           <button type="button" className="btn btn-danger" onClick={handleStopButton}>Stop</button>

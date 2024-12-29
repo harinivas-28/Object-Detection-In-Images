@@ -17,13 +17,19 @@ import os
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
-def load_model():
-    model = models.VGG16()
-    model_path = "trained_models/vgg16_headcount.pth"
+def load_model(selected_model):
+    model = None
+    model_path = None
+    if selected_model == 'VGG16':
+        model = models.VGG16()
+        model_path = "trained_models/vgg16_headcount.pth"
+    else:
+        model = models.ResNet50()
+        model_path = "trained_models/resnet50_headcount.pth"
     model.load_state_dict(torch.load(model_path, map_location=device, weights_only=True))
     model.to(device)
     model.eval() 
-    print("VGG16.Heavy Model loaded successfully")
+    print(f"{selected_model}.Heavy Model loaded successfully")
     return model
 
 def process_image(image, model):
@@ -151,10 +157,11 @@ def transform_images(img1, img2):
     return img1, img2
 
 
-def main(input_data, input_type, overlapped=False):
+def main(input_data, input_type, overlapped=False, selected_model='ResNet50'):
     print("Device: ", device)
     print("Input Type: ", input_type)
-    
+    print("Overlapped: ", overlapped)
+    print("Selected Model: ", selected_model)    
     if input_type == 'image':
         if isinstance(input_data, bytes):
             image = Image.open(BytesIO(input_data))
@@ -165,7 +172,7 @@ def main(input_data, input_type, overlapped=False):
             print(f"Overlapped Image: {overlapped}")
             model = load_overlapped_model()
             return process_overlapped_image(image, model)
-        model = load_model()
+        model = load_model(selected_model)
         return process_image(image, model)
     
     elif input_type == 'video':
@@ -199,7 +206,11 @@ def main(input_data, input_type, overlapped=False):
     
     elif input_type == 'url':
         video_model = load_video_model()
-        return process_url_stream(input_data, video_model)
+        # Open the temporary file with VideoCapture
+        video = cv2.VideoCapture(input_data)
+        if not video.isOpened():
+            raise ValueError("Failed to open video file")
+        return process_video_stream(video, video_model)
     
     else:
         raise ValueError("Invalid input type")

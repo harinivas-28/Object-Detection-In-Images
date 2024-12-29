@@ -11,6 +11,7 @@ def process():
     input_data = request.files.get('input') or request.form.get('input')
     input_type = request.form.get('inputType')
     overlapped = request.form.get('overlapped') == 'true'
+    selected_model = request.form.get('selected_model')
 
     if not input_data or not input_type:
         return jsonify({'error': 'Missing input data or type'}), 400
@@ -35,10 +36,10 @@ def process():
         elif input_type == 'image':
             # Image processing remains unchanged
             if overlapped:
-                count = main(input_data.read(), input_type, overlapped)
+                count = main(input_data.read(), input_type, overlapped=overlapped)
                 count = count.tolist()
             else:
-                count = main(input_data.read(), input_type)
+                count = main(input_data.read(), input_type, selected_model=selected_model)
             return jsonify(count), 200
         
         else:
