@@ -89,12 +89,14 @@ def process_video_stream(video, model):
                    b'Content-Type: image/jpeg\r\n\r\n' + frame_bytes + b'\r\n')
 
             # Control frame rate
-            cv2.waitKey(60 // fps)
+            # cv2.waitKey(int(1000 / fps))
+            time.sleep(1/fps)
 
     finally:
         video.release()
-        cv2.destroyAllWindows()
-        print("Hello World!", person_count)
+        print("Video processing complete")
+        # cv2.destroyAllWindows()
+        print(f"Total number of people detected: {person_count}")
         return
 
 def load_video_model():
