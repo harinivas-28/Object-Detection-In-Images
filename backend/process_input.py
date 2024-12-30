@@ -106,16 +106,26 @@ def load_video_model():
     print("YOLOv5 Model loaded successfully")
     return model
 
-def load_overlapped_model():
-    model = models.ResNet18()
-    try:
-        checkpoint = torch.load("trained_models/resnet18.pth", map_location=device, weights_only=True)
-        model.load_state_dict(checkpoint['model_state_dict'])
-    except Exception as e:
-        print("Error:", e)  
+def load_overlapped_model(selected_model):
+    model = None
+    if selected_model == 'ResNet50Overlapped':
+        model = models.ResNet50Overlapped()
+        try:
+            checkpoint = torch.load("trained_models/resnet50_overlapping.pth", map_location=device, weights_only=True)
+            model.load_state_dict(checkpoint['model_state_dict'])
+            print("ResNet50 Model loaded successfully")
+        except Exception as e:
+            print("Error:", e)
+    else:
+        model = models.ResNet18()
+        try:
+            checkpoint = torch.load("trained_models/resnet18.pth", map_location=device, weights_only=True)
+            model.load_state_dict(checkpoint['model_state_dict'])
+            print("ResNet18 Model loaded successfully")
+        except Exception as e:
+            print("Error:", e)
     model.eval()
     model = model.to(device)
-    print("ResNet18 Model loaded successfully")
     return model
 
 def process_overlapped_image(image, model, target_size=(1223, 373)):
@@ -170,7 +180,7 @@ def main(input_data, input_type, overlapped=False, selected_model='ResNet50'):
         
         if overlapped:
             print(f"Overlapped Image: {overlapped}")
-            model = load_overlapped_model()
+            model = load_overlapped_model(selected_model)
             return process_overlapped_image(image, model)
         model = load_model(selected_model)
         return process_image(image, model)

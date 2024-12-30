@@ -36,7 +36,7 @@ def process():
         elif input_type == 'image':
             # Image processing remains unchanged
             if overlapped:
-                count = main(input_data.read(), input_type, overlapped=overlapped)
+                count = main(input_data.read(), input_type, overlapped=overlapped, selected_model=selected_model)
                 count = count.tolist()
             else:
                 count = main(input_data.read(), input_type, selected_model=selected_model)

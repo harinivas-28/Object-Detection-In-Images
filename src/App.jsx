@@ -11,6 +11,8 @@ import {
 } from "react-bootstrap"
 import { Camera, Link, Upload } from "lucide-react"
 import "bootstrap/dist/css/bootstrap.min.css"
+import Papa from 'papaparse'; // Import PapaParse for CSV parsing
+import './App.css';
 
 const App = () => {
   const [input, setInput] = useState("")
@@ -22,15 +24,37 @@ const App = () => {
   const [processTime, setProcessTime] = useState(0)
   const [isProcessing, setIsProcessing] = useState(false)
   const [selectedModel, setSelectedModel] = useState('ResNet50');
+  const [groundTruth, setGroundTruth] = useState("Not available");
+  const [csvData, setCsvData] = useState([]);
 
   const timerRef = useRef(null)
   const imgRef = useRef(null)
+
+  useEffect(() => {
+    // Load and parse the CSV data
+    fetch('/src/labels_nonOL.csv')
+      .then(response => response.text())
+      .then(data => {
+        const parsedData = Papa.parse(data, { header: true }).data;
+        setCsvData(parsedData);
+      })
+      .catch(error => console.error('Error loading CSV data:', error));
+  }, []);
   
   const handleInputChange = e => {
     const file = e.target.files?.[0]
     if (file) {
       setInput(file)
       setInputType(file.type.startsWith("image/") ? "image" : "video")
+      
+      // Extract the file name and search in the CSV data
+      const fileName = file.name;
+      const found = csvData.find(row => row.image_file_name === fileName);
+      if (found) {
+        setGroundTruth(found.count);
+      } else {
+        setGroundTruth("Not available");
+      }
     }
   }
   
@@ -94,6 +118,10 @@ const App = () => {
     setIsProcessing(false);
     setLoading(false);
   }
+  const handleOverlappedRadioChange = (event) => {
+    setSelectedModel(event.target.value);
+    setOverlapped(true);
+  };
 
   const handleSubmit = async e => {
     e.preventDefault()
@@ -132,6 +160,13 @@ const App = () => {
         stopTimer()
       }
       return
+    }
+
+    if (inputType === 'image') {
+      const imageUrl = URL.createObjectURL(input)
+      if (imgRef.current) {
+        imgRef.current.src = imageUrl
+      }
     }
 
     setLoading(true)
@@ -202,27 +237,45 @@ const App = () => {
                 accept="image/*,video/*"
               />
             </Form.Group>
-            <Form.Group controlId="overlapCheckbox">
-              <Form.Check
-                type="checkbox"
-                label="Overlapped Image"
-                onChange={handleCheckBox}
-                checked={overlapped}
-              />
-              <Form.Check
-                type="radio"
-                label="Use VGG16 Model"
-                value="VGG16"
-                onChange={handleRadioChange}
-                checked={selectedModel === 'VGG16'}
-              />
-              <Form.Check
-                type="radio"
-                label="Use ResNet50 Model"
-                value="ResNet50"
-                onChange={handleRadioChange}
-                checked={selectedModel === 'ResNet50'}
-              />
+            <Form.Group controlId="overlapCheckbox" className="flex-container">
+              <div>
+                <Form.Check
+                  type="radio"
+                  label="Use VGG16 Model"
+                  value="VGG16"
+                  onChange={handleRadioChange}
+                  checked={selectedModel === 'VGG16'}
+                />
+                <Form.Check
+                  type="radio"
+                  label="Use ResNet50 Model"
+                  value="ResNet50"
+                  onChange={handleRadioChange}
+                  checked={selectedModel === 'ResNet50'}
+                />
+              </div>
+              <div>
+                <Form.Check
+                  type="checkbox"
+                  label="Overlapped Image"
+                  onChange={handleCheckBox}
+                  checked={overlapped}
+                />
+                <Form.Check
+                  type="radio"
+                  label="Use ResNet18 Model (Overlapping)"
+                  value="ResNet18"
+                  onChange={handleOverlappedRadioChange}
+                  checked={selectedModel === 'ResNet18'}
+                />
+                <Form.Check
+                  type="radio"
+                  label="Use ResNet50 Model (Overlapping)"
+                  value="ResNet50Overlapped"
+                  onChange={handleOverlappedRadioChange}
+                  checked={selectedModel === 'ResNet50Overlapped'}
+                />
+              </div>
           </Form.Group>
           </Col>
           <Col>
@@ -242,7 +295,7 @@ const App = () => {
               <>
                 <Spinner animation="border" size="sm" className="me-2" />
                 Processing...
-                <p variant="success">Loading {isProcessing ? "" : (overlapped ? "ResNet18" : selectedModel)} ...</p>
+                <p variant="success">Loading {isProcessing ? "video" : (overlapped ? "ResNet18" : selectedModel)} ...</p>
               </>
             ) : (
               <>
@@ -263,16 +316,21 @@ const App = () => {
           <button type="button" className="btn btn-danger" onClick={handleStopButton}>Stop</button>
         </div>
       )}
-      {(inputType === 'video' || inputType === 'url') && isProcessing && (
+      {(inputType === 'video' || inputType === 'url' || inputType === 'image') && (
         <div className="mt-3">
           <div className="ratio ratio-16x9">
             <img
               ref={imgRef}
-              alt="Video Stream"
-              className="w-100 h-100 object-fit-contain"
-              style={{ backgroundColor: '#000' }}
+              alt="Media Stream"
+              className="w-50 h-50 object-fit-contain"
+              style={{ backgroundColor: 'transparent' }}
             />
           </div>
+          {inputType === 'image' && (
+            <Alert variant="success" className="mt-3">
+            Ground Truth: {groundTruth}
+          </Alert>
+          )}
         </div>
       )}
       {result !== "" && (
