@@ -16,7 +16,7 @@ import './App.css';
 
 const App = () => {
   const [input, setInput] = useState("")
-  const [inputType, setInputType] = useState("image")
+  const [inputType, setInputType] = useState("")
   const [loading, setLoading] = useState(false)
   const [result, setResult] = useState("")
   const [error, setError] = useState(null)
@@ -99,7 +99,6 @@ const App = () => {
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
-
       // Create a blob URL from the response
       const blob = new Blob([await response.blob()], { type: 'multipart/x-mixed-replace; boundary=frame' });
       const url = URL.createObjectURL(blob);
@@ -295,7 +294,7 @@ const App = () => {
               <>
                 <Spinner animation="border" size="sm" className="me-2" />
                 Processing...
-                <p variant="success">Loading {isProcessing ? "video" : (overlapped ? "ResNet18" : selectedModel)} ...</p>
+                <p variant="success">Loading {isProcessing ? "video" : selectedModel} ...</p>
               </>
             ) : (
               <>
@@ -318,6 +317,7 @@ const App = () => {
       )}
       {(inputType === 'video' || inputType === 'url' || inputType === 'image') && (
         <div className="mt-3">
+          <p>Input Image</p>
           <div className="ratio ratio-16x9">
             <img
               ref={imgRef}
