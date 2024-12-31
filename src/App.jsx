@@ -9,7 +9,7 @@ import {
   Alert,
   ProgressBar
 } from "react-bootstrap"
-import { Camera, Link, Upload } from "lucide-react"
+import { Camera, Heading5, Link, Upload } from "lucide-react"
 import "bootstrap/dist/css/bootstrap.min.css"
 import Papa from 'papaparse'; // Import PapaParse for CSV parsing
 import './App.css';
@@ -27,6 +27,7 @@ const App = () => {
   const [groundTruth, setGroundTruth] = useState("Not available");
   const [csvData, setCsvData] = useState([]);
   const [processedImage, setProcessedImage] = useState(null);
+  const [fasterResNetResult, setFasterResNetResult] = useState(null);
 
   const timerRef = useRef(null)
   const imgRef = useRef(null)
@@ -43,18 +44,30 @@ const App = () => {
   }, []);
   
   const handleInputChange = e => {
-    const file = e.target.files?.[0]
+    const file = e.target.files?.[0];
     if (file) {
-      setInput(file)
-      setInputType(file.type.startsWith("image/") ? "image" : "video")
-      
+      setInput(file);
+      setInputType(file.type.startsWith("image/") ? "image" : "video");
+
       // Extract the file name and search in the CSV data
       const fileName = file.name;
-      const found = csvData.find(row => row.image_file_name === fileName);
-      if (found) {
+      let found = csvData.find(row => row.image_file_name === fileName);
+      if (found && found.count) {
         setGroundTruth(found.count);
       } else {
-        setGroundTruth("Not available");
+        // If not found or count is not available, search in labels_OV.csv
+        fetch('/src/labels_OV.csv')
+          .then(response => response.text())
+          .then(data => {
+            const parsedData = Papa.parse(data, { header: true }).data;
+            found = parsedData.find(row => row.filename === fileName);
+            if (found) {
+              setGroundTruth(`Total: ${found.total}, Overlapped: ${found.duplicates}, Original: ${found.original}`);
+            } else {
+              setGroundTruth("Not available");
+            }
+          })
+          .catch(error => console.error('Error loading CSV data:', error));
       }
     }
   }
@@ -136,6 +149,11 @@ const App = () => {
     formData.append("inputType", inputType)
     formData.append("overlapped", overlapped)
     formData.append("selected_model", selectedModel)
+    if (selectedModel === 'DETR') {
+      setError("DETR model is not available for image processing");
+      setLoading(false);
+      return;
+    }
 
     if (inputType === 'video' || inputType === 'url') {
       setLoading(true)
@@ -182,6 +200,7 @@ const App = () => {
         }
   
         setProcessedImage(resData.image);
+        setFasterResNetResult(resData.total_people);
       } catch (err) {
         console.error("Error:", err);
         setError(`Failed to process image: ${err.message}`);
@@ -265,7 +284,20 @@ const App = () => {
                 accept="image/*,video/*"
               />
             </Form.Group>
-            <Form.Group controlId="overlapCheckbox" className="flex-container">
+          </Col>
+          <Col md={6}>
+            <Form.Group>
+              <Form.Label>Or Enter URL</Form.Label>
+              <Form.Control
+                type="url"
+                onChange={handleUrlChange}
+                placeholder="https://example.com/webcam"
+              />
+            </Form.Group>
+          </Col>
+        </Row>
+        <Row className="mb-3">
+        <Form.Group controlId="overlapCheckbox" className="flex-container">
               <div>
                 <Form.Check
                   type="radio"
@@ -304,18 +336,17 @@ const App = () => {
                   checked={selectedModel === 'ResNet50Overlapped'}
                 />
               </div>
+              <div>
+              <Form.Check
+                  type="radio"
+                  label="Use DETR Transformer Model"
+                  value="DETR"
+                  onChange={handleRadioChange}
+                  checked={selectedModel === 'DETR'}
+                />
+              <p className="text-danger">(Further Implementation)</p>
+              </div>
             </Form.Group>
-          </Col>
-          <Col md={6}>
-            <Form.Group>
-              <Form.Label>Or Enter URL</Form.Label>
-              <Form.Control
-                type="url"
-                onChange={handleUrlChange}
-                placeholder="https://example.com/webcam"
-              />
-            </Form.Group>
-          </Col>
         </Row>
         <div className="d-grid">
           <Button variant="primary" type="submit" disabled={loading || !input}>
@@ -347,7 +378,7 @@ const App = () => {
       {(inputType==='video' || inputType === 'image') && (
         <Row className="mt-3">
           <Col md={6}>
-            <p>Input Image</p>
+            <h5>Input Image</h5>
             <div className="ratio ratio-16x9">
               <img
                 ref={imgRef}
@@ -358,7 +389,7 @@ const App = () => {
             </div>
           </Col>
           <Col md={6}>
-          <p>Processed Image</p>
+          <h5>Processed Image</h5>
             {processedImage && (
               <div className="ratio ratio-16x9">
                 <img
@@ -382,6 +413,11 @@ const App = () => {
       {result !== "" && (
         <Alert variant="success" className="mt-3">
           Number of people detected: {result}
+        </Alert>
+      )}
+      { fasterResNetResult !== null && (
+        <Alert variant="primary" className="mt-3">
+          PyTorch R-CNN ResNet50 Model Pretrained: {fasterResNetResult}
         </Alert>
       )}
       {error && (
