@@ -26,6 +26,7 @@ const App = () => {
   const [selectedModel, setSelectedModel] = useState('ResNet50');
   const [groundTruth, setGroundTruth] = useState("Not available");
   const [csvData, setCsvData] = useState([]);
+  const [processedImage, setProcessedImage] = useState(null);
 
   const timerRef = useRef(null)
   const imgRef = useRef(null)
@@ -127,6 +128,7 @@ const App = () => {
     setError(null)
     setResult(null)
     setProcessTime(0)
+    setProcessedImage(null);
 
     setLoading(true)
     const formData = new FormData()
@@ -159,6 +161,33 @@ const App = () => {
         stopTimer()
       }
       return
+    }
+
+    if (inputType === 'image') {
+      try {
+        const res = await fetch("http://127.0.0.1:5000/api/process_image", {
+          method: "POST",
+          body: formData,
+          mode: "cors",
+          credentials: "include"
+        });
+  
+        if (!res.ok) {
+          throw new Error(`HTTP error! status: ${res.status}`);
+        }
+  
+        const resData = await res.json();
+        if (resData.error) {
+          throw new Error(resData.error);
+        }
+  
+        setProcessedImage(resData.image);
+      } catch (err) {
+        console.error("Error:", err);
+        setError(`Failed to process image: ${err.message}`);
+      } finally {
+        setLoading(false);
+      }
     }
 
     if (inputType === 'image') {
@@ -227,7 +256,7 @@ const App = () => {
       <h1 className="text-center mb-4">People Counter</h1>
       <Form onSubmit={handleSubmit}>
         <Row className="mb-3">
-          <Col>
+          <Col md={6}>
             <Form.Group>
               <Form.Label>Upload Image/Video</Form.Label>
               <Form.Control
@@ -275,9 +304,9 @@ const App = () => {
                   checked={selectedModel === 'ResNet50Overlapped'}
                 />
               </div>
-          </Form.Group>
+            </Form.Group>
           </Col>
-          <Col>
+          <Col md={6}>
             <Form.Group>
               <Form.Label>Or Enter URL</Form.Label>
               <Form.Control
@@ -315,23 +344,40 @@ const App = () => {
           <button type="button" className="btn btn-danger" onClick={handleStopButton}>Stop</button>
         </div>
       )}
-      {(inputType === 'video' || inputType === 'url' || inputType === 'image') && (
-        <div className="mt-3">
-          <p>Input Image</p>
-          <div className="ratio ratio-16x9">
-            <img
-              ref={imgRef}
-              alt="Media Stream"
-              className="w-50 h-50 object-fit-contain"
-              style={{ backgroundColor: 'transparent' }}
-            />
-          </div>
-          {inputType === 'image' && (
-            <Alert variant="success" className="mt-3">
-            Ground Truth: {groundTruth}
-          </Alert>
-          )}
-        </div>
+      {(inputType==='video' || inputType === 'image') && (
+        <Row className="mt-3">
+          <Col md={6}>
+            <p>Input Image</p>
+            <div className="ratio ratio-16x9">
+              <img
+                ref={imgRef}
+                alt="Media Stream"
+                className="w-100 h-100 object-fit-contain"
+                style={{ backgroundColor: 'transparent' }}
+              />
+            </div>
+          </Col>
+          <Col md={6}>
+          <p>Processed Image</p>
+            {processedImage && (
+              <div className="ratio ratio-16x9">
+                <img
+                  src={`data:image/jpeg;base64,${processedImage}`}
+                  alt="Processed"
+                  className="w-100 h-100 object-fit-contain"
+                  style={{ backgroundColor: 'transparent' }}
+                />
+              </div>
+            )}
+          </Col>
+          <Col md={12}>
+            {inputType === 'image' && (
+              <Alert variant="success" className="mt-3">
+                Ground Truth: {groundTruth}
+              </Alert>
+            )}
+          </Col>
+        </Row>
       )}
       {result !== "" && (
         <Alert variant="success" className="mt-3">
