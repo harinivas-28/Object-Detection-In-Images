@@ -50,9 +50,13 @@ def process_image(image_path):
     boxes = detections['boxes'][detections['labels'] == 1]
     scores = detections['scores'][detections['labels'] == 1]
 
+    # Count total number of people
+    total_people = 0
+
     # Draw boxes on the image
     for box, score in zip(boxes, scores):
         if score > 0.5:  # Confidence threshold
+            total_people += 1
             x1, y1, x2, y2 = map(int, box.cpu().detach().numpy())
             cv2.rectangle(img_cv2, (x1, y1), (x2, y2), (0, 255, 0), 2)
             cv2.putText(img_cv2, f"{score:.2f}", (x1, y1 - 10), 
@@ -61,7 +65,7 @@ def process_image(image_path):
     # Convert image to base64
     _, buffer = cv2.imencode('.jpg', img_cv2)
     img_base64 = base64.b64encode(buffer).decode('utf-8')
-    return img_base64
+    return img_base64, total_people
 
 @app.route('/api/process', methods=['POST'])
 def process():
@@ -117,10 +121,10 @@ def process_image_route():
         temp_image_path = 'temp_image.jpg'
         input_data.save(temp_image_path)
 
-        # Process the image and get the base64 string
-        processed_image_base64 = process_image(temp_image_path)
+        # Process the image and get the base64 string and total people count
+        processed_image_base64, total_people = process_image(temp_image_path)
 
-        return jsonify({'image': processed_image_base64}), 200
+        return jsonify({'image': processed_image_base64, 'total_people': total_people}), 200
     except Exception as e:
         print(f"Error processing image: {str(e)}")
         print(traceback.format_exc())
