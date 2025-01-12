@@ -13,8 +13,8 @@ import io
 import base64
 
 app = Flask(__name__)
-# CORS(app,resources={r"/api/*": {"origins": "http://localhost:5173"}}, supports_credentials=True)
-CORS(app,resources={r"/api/*": {"origins": "https://count-people-ai.vercel.app/"}}, supports_credentials=True)
+CORS(app,resources={r"/api/*": {"origins": "http://localhost:5173"}}, supports_credentials=True)
+# CORS(app,resources={r"/api/*": {"origins": "https://count-people-ai.vercel.app/"}}, supports_credentials=True)
 
 
 # Load your PeopleCounterResNet50 model
