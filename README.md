@@ -48,6 +48,7 @@ Traditional approaches fail to generalize across scenarios, resulting in inaccur
 - **Planned:** Transformer-based models for advanced use cases.
 
 ## Dataset Details
+`Place the Dataset URL here`
 - **Total Images:** 598
 - **Source:** Custom dataset from classroom scenarios via CC cameras
 - **Key Features:**
@@ -80,7 +81,7 @@ Traditional approaches fail to generalize across scenarios, resulting in inaccur
 5. **User Interface:**
    - Options to upload images/videos or enter URLs
    - Real-time detection results with bounding boxes and counts
-
+`Include the deployed models URL`
 ## Results
 - **Accuracy:** 85-95% across diverse scenarios
 - **Processing Time:** < 3 seconds per image
