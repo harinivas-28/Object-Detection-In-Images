@@ -59,6 +59,7 @@ Traditional approaches fail to generalize across scenarios, resulting in inaccur
   - Brightness variation
   - Horizontal flipping
   - Random cropping
+- **Dataset Online:** [Kaggle](https://www.kaggle.com/datasets/harinivasganjarla/classroom-data)
 
 ## Implementation Highlights
 1. **Data Preprocessing:**
@@ -68,6 +69,7 @@ Traditional approaches fail to generalize across scenarios, resulting in inaccur
    - Loss Function: Mean Squared Error (MSE)
    - Optimizer: Adam optimizer
    - Configuration: 50 epochs, batch size of 16
+   - Models are saved in [HuggingFace Hub](https://huggingface.co/Harinivas-28)
 3. **Evaluation Metrics:**
    - MAE (Mean Absolute Error)
    - MSE (Mean Squared Error)
@@ -133,6 +135,7 @@ To start the frontend application, run:
 npm run dev
 ```
 To run the backend
+> NOTE: Use virtual environment for python 
 ```sh
 cd backend
 python app.py
