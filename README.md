@@ -2,9 +2,16 @@
 
 ## Overview
 This project focuses on developing an **Automated Classroom Attendance System** leveraging **Deep Learning** and **Transformer models** to accurately count students in classrooms. By addressing challenges like **occlusions**, **overlapping individuals**, and **varied lighting conditions**, the system ensures high accuracy and robust performance in real-world scenarios.
+### Visualization
+![Screenshot 2024-12-11 114214](https://github.com/user-attachments/assets/98ae79ae-e3ad-461d-aed6-4805528ad17a)
+### Interface
+![people_counter](https://github.com/user-attachments/assets/cbffb50b-e303-4d09-a80e-69ec7ace3df9)
+
 
 ## Abstract
 The system automates the process of taking attendance by using advanced **Convolutional Neural Networks (CNNs)** and **Transformers** to detect and count students in classroom images or videos. A **custom dataset** was created for training and evaluation, ensuring adaptability to diverse scenarios. The solution integrates seamlessly with a **user-friendly interface** for real-time processing, enhancing classroom management efficiency.
+
+![Screenshot 2025-01-01 201505](https://github.com/user-attachments/assets/fed88d6d-4595-4306-872a-969bc6b84ca8)
 
 ## Objectives
 1. Automate classroom attendance using deep learning techniques.
